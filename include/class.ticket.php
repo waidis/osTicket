@@ -2657,52 +2657,25 @@ implements RestrictedAccess, Threadable, Searchable {
             $vars['ip_address'] = $_SERVER['REMOTE_ADDR'];
 
         $errors = array();
-
-        $hdr = Mail_parse::splitHeaders($vars['header'], true);
-        $existingCollab = Collaborator::getIdByUserId($vars['userId'], $this->getThreadId());
-
-        if (($vars['userId'] != $this->user_id) && (!$existingCollab)) {
-          if ($vars['userId'] == 0) {
-            $emailStream = '<<<EOF' . $vars['header'] . 'EOF';
-            $parsed = EmailDataParser::parse($emailStream);
-            $email = $parsed['email'];
-            if (!$existinguser = User::lookupByEmail($email)) {
-              $name = $parsed['name'];
-              $user = User::fromVars(array('name' => $name, 'email' => $email));
-              $vars['userId'] = $user->getId();
+        if ($vars['userId'] != $this->user_id) {
+            if ($vars['userId']) {
+                $user = User::lookup($vars['userId']);
+             } elseif ($vars['header']
+                    && ($hdr= Mail_parse::splitHeaders($vars['header'], true))
+                    && $hdr['From']
+                    && ($addr= Mail_Parse::parseAddressList($hdr['From']))) {
+                $info = array(
+                        'name' => $addr[0]->personal,
+                        'email' => $addr[0]->mailbox.'@'.$addr[0]->host);
+                if ($user=User::fromVars($info))
+                    $vars['userId'] = $user->getId();
             }
-          }
-          else
-            $user = User::lookup($vars['userId']);
 
-          $c = $this->getThread()->addCollaborator($user,array(), $errors);
-
-          $addresses = array();
-          foreach (array('To', 'TO', 'Cc', 'CC') as $k) {
-            if ($user && isset($hdr[$k]) && $hdr[$k])
-              $addresses[] = Mail_Parse::parseAddressList($hdr[$k]);
-          }
-          if (count($addresses) > 1) {
-            $isMsg = true;
-            $c->setCc();
-          }
-        }
-        else {
-          $c = Collaborator::lookup($existingCollab);
-          if ($c && !$c->isCc()) {
-            foreach (array('To', 'TO', 'Cc', 'CC') as $k) {
-              if (isset($hdr[$k]) && $hdr[$k])
-                $addresses[] = Mail_Parse::parseAddressList($hdr[$k]);
+            if ($user) {
+                $c = $this->getThread()->addCollaborator($user,array(),
+                        $errors);
             }
-            if (count($addresses) > 1) {
-              $isMsg = true;
-              $c->setCc();
-            }
-          }
-        }
-
-        if ($vars['userId'] == $this->user_id)
-          $isMsg = true;
+       }
 
       // Get active recipients of the response
       // Initial Message from Tickets created by Agent
@@ -3429,7 +3402,6 @@ implements RestrictedAccess, Threadable, Searchable {
         return true;
     }
 
-
    /*============== Static functions. Use Ticket::function(params); =============nolint*/
     static function getIdByNumber($number, $email=null, $ticket=false) {
 
@@ -3955,8 +3927,10 @@ implements RestrictedAccess, Threadable, Searchable {
 
           $note = array(
                   'title' => __('Ticket Created From Thread Entry'),
-                  'body' => sprintf(__('This Ticket was created from %s '. $link),
-                            $oldTicket ? 'Ticket' : 'Task')
+                  'body' => sprintf(__(
+                        // %1$s is the word Ticket or Task, %2$s will be a link to it
+                        'This Ticket was created from %1$s %2$s'),
+                        $oldTicket ? __('Ticket') : __('Task'), $link)
                   );
 
           $ticket->logNote($note['title'], $note['body'], $thisstaff);
@@ -3973,13 +3947,15 @@ implements RestrictedAccess, Threadable, Searchable {
 
           $ticketNote = array(
               'title' => __('Ticket Created From Thread Entry'),
-              'body' => __('Ticket ' . $ticketLink).
-              '<br /> Thread Entry: ' . $entryLink);
+              'body' => sprintf(__('Ticket %1$s<br/> Thread Entry: %2$s'),
+                $ticketLink, $entryLink)
+          );
 
           $taskNote = array(
               'title' => __('Ticket Created From Thread Entry'),
-              'note' => __('Ticket ' . $ticketLink).
-              '<br /> Thread Entry: ' . $entryLink);
+              'note' => sprintf(__('Ticket %1$s<br/> Thread Entry: %2$s'),
+                $ticketLink, $entryLink)
+          );
 
           if ($oldTicket)
             $oldTicket->logNote($ticketNote['title'], $ticketNote['body'], $thisstaff);

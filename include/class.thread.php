@@ -161,10 +161,19 @@ implements Searchable {
         return $collaborators;
     }
 
+    function isCollaborator($user) {
+        return $this->collaborators->findFirst(array(
+                    'user_id'     => $user->getId(),
+                    'thread_id'   => $this->getId()));
+    }
+
     function addCollaborator($user, $vars, &$errors, $event=true) {
 
         if (!$user)
             return null;
+
+        if ($this->isCollaborator($user))
+            return false;
 
         $vars = array_merge(array(
                 'threadId' => $this->getId(),
@@ -261,6 +270,17 @@ implements Searchable {
         }
 
         return $this->_participants;
+    }
+
+    // MailingList of recipients (collaborators)
+    function getRecipients() {
+        $list = new MailingList();
+        if ($collabs = $this->getActiveCollaborators()) {
+            foreach ($collabs as $c)
+                $list->addCc($c);
+        }
+
+        return $list;
     }
 
     function getReferral($id, $type) {
@@ -2964,6 +2984,14 @@ implements TemplateVariable {
         return $resp;
     }
 
+    function __toString() {
+        return $this->asVar();
+    }
+
+    function asVar() {
+        return $this->getVar('complete');
+    }
+
     function getVar($name) {
         switch ($name) {
         case 'original':
@@ -2984,11 +3012,22 @@ implements TemplateVariable {
                 return $entry->getBody();
 
             break;
+        case 'complete':
+            $content = '';
+            $thread = $this;
+            ob_start();
+            include INCLUDE_DIR.'client/templates/thread-export.tmpl.php';
+            $content = ob_get_contents();
+            ob_end_clean();
+            return $content;
+
+            break;
         }
     }
 
     static function getVarScope() {
       return array(
+        'complete' => __('Thread Correspondence'),
         'original' => array('class' => 'MessageThreadEntry', 'desc' => __('Original Message')),
         'lastmessage' => array('class' => 'MessageThreadEntry', 'desc' => __('Last Message')),
       );
