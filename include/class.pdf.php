@@ -39,7 +39,7 @@ class mPDFWithLocalImages extends Mpdf {
                 if (!($file = @$images[strtolower($match[1])]))
                     return $match[0];
                 $key = "__attached_file_".$filenumber++;
-                $self->{$key} = $file->getData();
+                $self->imageVars[$key] = $file->getData();
                 return 'var:'.$key;
             },
             $html
@@ -108,7 +108,7 @@ class Task2PDF extends mPDFWithLocalImages {
         $this->task = $task;
         $this->options = $options;
 
-        parent::__construct('', $this->options['psize']);
+        parent::__construct(['mode' => 'utf-8', 'format' => $this->options['psize'], 'tempDir'=>sys_get_temp_dir()]);
         $this->_print();
     }
 

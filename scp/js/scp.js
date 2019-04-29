@@ -483,7 +483,7 @@ var scp_prep = function() {
 
   $('div.tab_content[id] div.error:not(:empty)').each(function() {
     var div = $(this).closest('.tab_content');
-    $('a[href^=#'+div.attr('id')+']').parent().addClass('error');
+    $('a[href^="#'+div.attr('id')+'"]').parent().addClass('error');
   });
 
   $('[data-toggle="tooltip"]').tooltip()
@@ -595,6 +595,7 @@ $(document).ajaxSend(function(event, xhr, settings) {
 /* Get config settings from the backend */
 jQuery.fn.exists = function() { return this.length>0; };
 
+$.pjax.defaults.timeout = 30000;
 $.translate_format = function(str) {
     var translation = {
         'DD':   'oo',
@@ -1131,7 +1132,7 @@ if ($.support.pjax) {
     if (!$this.hasClass('no-pjax')
         && !$this.closest('.no-pjax').length
         && $this.attr('href').charAt(0) != '#')
-      $.pjax.click(event, {container: $this.data('pjaxContainer') || '#pjax-container', timeout: 2000});
+      $.pjax.click(event, {container: $this.data('pjaxContainer') || '#pjax-container', timeout: 30000});
   })
 }
 
@@ -1167,15 +1168,16 @@ $(document).on('change', 'select[data-quick-add]', function() {
 });
 
 // Quick note interface
-$(document).on('click.note', '.quicknote .action.edit-note', function() {
+$(document).on('click.note', '.quicknote .action.edit-note', function(e) {
+    // Prevent Auto-Scroll to top of page
+    e.preventDefault();
     var note = $(this).closest('.quicknote'),
         body = note.find('.body'),
         T = $('<textarea>').text(body.html());
     if (note.closest('.dialog, .tip_box').length)
         T.addClass('no-bar small');
     body.replaceWith(T);
-    $.redact(T);
-    $(T).redactor('focus.setStart');
+    $.redact(T, { focusEnd: true });
     note.find('.action.edit-note').hide();
     note.find('.action.save-note').show();
     note.find('.action.cancel-edit').show();
@@ -1248,8 +1250,7 @@ $(document).on('click', '#new-note', function() {
     note.replaceWith(T);
     $('<p>').addClass('submit').css('text-align', 'center')
         .append(button).appendTo(T.parent());
-    $.redact(T);
-    $(T).redactor('focus.setStart');
+    $.redact(T, { focusEnd: true });
     return false;
 });
 
@@ -1308,7 +1309,7 @@ jQuery(function($) {
     $.fn.show = function() {
         var argsArray = Array.prototype.slice.call(arguments),
             arg = argsArray[0],
-            options = {};
+            options = argsArray[1] || {duration: 0};
         if (typeof(arg) === 'number')
             options.duration = arg;
         else
