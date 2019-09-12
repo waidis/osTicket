@@ -171,6 +171,7 @@ class Organization extends OrganizationModel
 implements TemplateVariable, Searchable {
     var $_entries;
     var $_forms;
+    var $_queue;
 
     function addDynamicData($data) {
         $entry = $this->addForm(OrganizationForm::objects()->one(), 1, $data);
@@ -372,22 +373,7 @@ implements TemplateVariable, Searchable {
         return true;
     }
 
-    function update($vars, &$errors) {
-
-        $valid = true;
-        $forms = $this->getForms($vars);
-        foreach ($forms as $entry) {
-            if (!$entry->isValid())
-                $valid = false;
-            if ($entry->getDynamicForm()->get('type') == 'O'
-                        && ($f = $entry->getField('name'))
-                        && $f->getClean()
-                        && ($o=Organization::lookup(array('name'=>$f->getClean())))
-                        && $o->id != $this->getId()) {
-                $valid = false;
-                $f->addError(__('Organization with the same name already exists'));
-            }
-        }
+    function updateProfile($vars, &$errors) {
 
         if ($vars['domain']) {
             foreach (explode(',', $vars['domain']) as $d) {
@@ -411,20 +397,13 @@ implements TemplateVariable, Searchable {
             }
         }
 
-        if (!$valid || $errors)
-            return false;
+        // Attempt to valid & update dynamic data even on errors
+        if (!$this->update($vars, $errors))
+            $errors['error'] = __('Unable to update organization form');
 
-        foreach ($this->getDynamicData() as $entry) {
-            if ($entry->getDynamicForm()->get('type') == 'O'
-               && ($name = $entry->getField('name'))
-            ) {
-                $this->name = $name->getClean();
-                $this->save();
-            }
-            $entry->setSource($vars);
-            if ($entry->save())
-                $this->updated = SqlFunction::NOW();
-        }
+
+        if ($errors)
+            return false;
 
         // Set flags
         foreach (array(
@@ -465,6 +444,43 @@ implements TemplateVariable, Searchable {
         }
 
         return $this->save();
+    }
+
+
+    function update($vars, &$errors) {
+
+        $valid = true;
+        $forms = $this->getForms($vars);
+        foreach ($forms as $entry) {
+            if (!$entry->isValid())
+                $valid = false;
+            if ($entry->getDynamicForm()->get('type') == 'O'
+                        && ($f = $entry->getField('name'))
+                        && $f->getClean()
+                        && ($o=Organization::lookup(array('name'=>$f->getClean())))
+                        && $o->id != $this->getId()) {
+                $valid = false;
+                $f->addError(__('Organization with the same name already exists'));
+            }
+        }
+
+        if (!$valid || $errors)
+            return false;
+
+        // Save dynamic data.
+        foreach ($this->getDynamicData() as $entry) {
+            if ($entry->getDynamicForm()->get('type') == 'O'
+               && ($name = $entry->getField('name'))
+            ) {
+                $this->name = $name->getClean();
+                $this->save();
+            }
+            $entry->setSource($vars);
+            if ($entry->save())
+                $this->updated = SqlFunction::NOW();
+        }
+
+        return true;
     }
 
     function delete() {
@@ -548,6 +564,25 @@ implements TemplateVariable, Searchable {
         }
 
         return $org;
+    }
+
+    function getTicketsQueue() {
+        global $thisstaff;
+
+        if (!$this->_queue) {
+            $name = $this->getName();
+            $this->_queue = new AdhocSearch(array(
+                'id' => 'adhoc,orgid'.$this->getId(),
+                'root' => 'T',
+                'staff_id' => $thisstaff->getId(),
+                'title' => $name
+            ));
+            $this->_queue->filter(array(
+                'user__org__name' => $name
+            ));
+        }
+
+        return $this->_queue;
     }
 }
 

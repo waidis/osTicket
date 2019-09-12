@@ -378,7 +378,7 @@ if (!$ticket) { ?>
                                         $task->getThread()->getNumCollaborators());
 
                             echo sprintf('<span><a class="collaborators preview"
-                                    href="#thread/%d/collaborators"><span
+                                    href="#thread/%d/collaborators/1"><span
                                     id="t%d-collaborators">%s</span></a></span>',
                                     $task->getThreadId(),
                                     $task->getThreadId(),
@@ -492,7 +492,7 @@ else
                                 $thread->getNumCollaborators());
 
                     echo sprintf('<span><a class="collaborators preview"
-                            href="#thread/%d/collaborators"> %s &nbsp;<span id="t%d-recipients">%s</span></a></span>',
+                            href="#thread/%d/collaborators/1"><span id="t%d-recipients">%s</span></a></span>',
                             $thread->getId(),
                             __('Collaborators'),
                             $thread->getId(),
@@ -513,7 +513,7 @@ else
                         placeholder="<?php echo __( 'Start writing your update here.'); ?>"
                         rows="9" wrap="soft"
                         class="<?php if ($cfg->isRichTextEnabled()) echo 'richtext';
-                            ?> draft draft-delete" <?php
+                            ?> draft draft-delete fullscreen" <?php
     list($draft, $attrs) = Draft::getDraftAndDataAttrs('task.response', $task->getId(), $info['task.response']);
     echo $attrs; ?>><?php echo $draft ?: $info['task.response'];
                     ?></textarea>
@@ -574,7 +574,7 @@ else
                         placeholder="<?php echo __('Internal Note details'); ?>"
                         rows="9" wrap="soft" data-draft-namespace="task.note"
                         data-draft-object-id="<?php echo $task->getId(); ?>"
-                        class="richtext ifhtml draft draft-delete"><?php
+                        class="richtext ifhtml draft draft-delete fullscreen"><?php
                         echo $info['note'];
                         ?></textarea>
                     <div class="attachments">

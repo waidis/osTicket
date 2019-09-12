@@ -209,7 +209,7 @@ var scp_prep = function() {
     $('form select#cannedResp').on('select2:opening', function (e) {
         var redactor = $('.richtext', $(this).closest('form')).data('redactor');
         if (redactor)
-            redactor.selection.save();
+            redactor.api('selection.save');
     });
 
     $('form select#cannedResp').change(function() {
@@ -230,17 +230,14 @@ var scp_prep = function() {
                 cache: false,
                 success: function(canned){
                     //Canned response.
-                    var box = $('#response',fObj),
-                        redactor = box.data('redactor');
-                    if(canned.response) {
+                    var box = $('#response', fObj),
+                        redactor = $R('#response');
+                    if (canned.response) {
                         if (redactor) {
-                            redactor.selection.restore();
-                            redactor.insert.html(canned.response);
+                            redactor.api('selection.restore');
+                            redactor.insertion.insertHtml(canned.response);
                         } else
                             box.val(box.val() + canned.response);
-
-                        if (redactor)
-                            redactor.observe.load();
                     }
                     //Canned attachments.
                     var ca = $('.attachments', fObj);
@@ -1045,6 +1042,19 @@ $.changeHash = function(hash, quiet) {
   }
 };
 
+// Exports
+$(document).on('click', 'a.export', function(e) {
+    e.preventDefault();
+    var url = 'ajax.php/'+$(this).attr('href').substr(1)
+    $.dialog(url, 201, function (xhr) {
+        var resp = $.parseJSON(xhr.responseText);
+        var checker = 'ajax.php/export/'+resp.eid+'/check';
+        $.dialog(checker, 201, function (xhr) { });
+        return false;
+     });
+    return false;
+});
+
 // Forms — submit, stay on same tab
 $(document).on('submit', 'form', function() {
     if (!!$(this).attr('action') && $(this).attr('action').indexOf('#') == -1)
@@ -1064,6 +1074,20 @@ $(document).on('click', 'a.collaborator, a.collaborators:not(.noclick)', functio
     });
     return false;
  });
+
+ //Merge
+ $(document).on('click', 'a.merge, a.merge:not(.noclick)', function(e) {
+     e.preventDefault();
+     var url = 'ajax.php/'+$(this).attr('href').substr(1);
+     $.dialog(url, 201, function (xhr) {
+        var resp = $.parseJSON(xhr.responseText);
+        $('#t'+resp.id+'-recipients').text(resp.text);
+        $('.tip_box').remove();
+     }, {
+         onshow: function() { $('#user-search').focus(); }
+     });
+     return false;
+  });
 
 // NOTE: getConfig should be global
 getConfig = (function() {

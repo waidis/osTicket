@@ -58,6 +58,8 @@ implements TemplateVariable, Searchable {
     var $_groupids;
     var $config;
 
+    var $schedule;
+
     var $template;
     var $autorespEmail;
 
@@ -65,12 +67,14 @@ implements TemplateVariable, Searchable {
     const DISPLAY_DISABLED = 2;
     const ALERTS_DEPT_AND_EXTENDED = 1;
     const ALERTS_DEPT_ONLY = 0;
+    const ALERTS_ADMIN_ONLY = 3;
 
     const FLAG_ASSIGN_MEMBERS_ONLY = 0x0001;
     const FLAG_DISABLE_AUTO_CLAIM  = 0x0002;
     const FLAG_ACTIVE = 0x0004;
     const FLAG_ARCHIVED = 0x0008;
     const FLAG_ASSIGN_PRIMARY_ONLY = 0x0010;
+    const FLAG_DISABLE_REOPEN_AUTO_ASSIGN = 0x0020;
 
     function asVar() {
         return $this->getName();
@@ -338,6 +342,18 @@ implements TemplateVariable, Searchable {
         return $this->sla;
     }
 
+    function getScheduleId() {
+        return $this->schedule_id;
+    }
+
+    function getSchedule() {
+        if (!isset($this->schedule) && $this->getScheduleId())
+            $this->schedule = BusinessHoursSchedule::lookup(
+                        $this->getScheduleId());
+
+        return $this->schedule;
+    }
+
     function getTemplateId() {
          return $this->tpl_id;
     }
@@ -464,6 +480,10 @@ implements TemplateVariable, Searchable {
         return $this->flags & self::FLAG_DISABLE_AUTO_CLAIM;
     }
 
+    function disableReopenAutoAssign() {
+        return $this->flags & self::FLAG_DISABLE_REOPEN_AUTO_ASSIGN;
+    }
+
     function isGroupMembershipEnabled() {
         return $this->group_membership;
     }
@@ -477,7 +497,7 @@ implements TemplateVariable, Searchable {
         $ht['disable_auto_claim'] =  $this->disableAutoClaim();
         $ht['status'] = $this->getStatus();
         $ht['assignment_flag'] = $this->getAssignmentFlag();
-
+        $ht['disable_reopen_auto_assign'] =  $this->disableReopenAutoAssign();
         return $ht;
     }
 
@@ -798,6 +818,7 @@ implements TemplateVariable, Searchable {
         $this->email_id = isset($vars['email_id']) ? (int) $vars['email_id'] : 0;
         $this->tpl_id = isset($vars['tpl_id']) ? (int) $vars['tpl_id'] : 0;
         $this->sla_id = isset($vars['sla_id']) ? (int) $vars['sla_id'] : 0;
+        $this->schedule_id = isset($vars['schedule_id']) ? (int) $vars['schedule_id'] : 0;
         $this->autoresp_email_id = isset($vars['autoresp_email_id']) ? (int) $vars['autoresp_email_id'] : 0;
         $this->manager_id = $vars['manager_id'] ?: 0;
         $this->name = Format::striptags($vars['name']);
@@ -809,6 +830,7 @@ implements TemplateVariable, Searchable {
 
         $this->setFlag(self::FLAG_ASSIGN_MEMBERS_ONLY, isset($vars['assign_members_only']));
         $this->setFlag(self::FLAG_DISABLE_AUTO_CLAIM, isset($vars['disable_auto_claim']));
+        $this->setFlag(self::FLAG_DISABLE_REOPEN_AUTO_ASSIGN, isset($vars['disable_reopen_auto_assign']));
 
         $filter_actions = FilterAction::objects()->filter(array('type' => 'dept', 'configuration' => '{"dept_id":'. $this->getId().'}'));
         if ($filter_actions && $vars['status'] == 'active')

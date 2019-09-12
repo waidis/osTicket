@@ -93,6 +93,7 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
                         'thread_view_order' => '',
                         'default_ticket_queue_id' => 0,
                         'reply_redirect' => 'Ticket',
+                        'img_att_view' => 'download',
                         ));
             $this->_config = $_config->getInfo();
         }
@@ -353,6 +354,10 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
         return $this->reply_redirect;
     }
 
+    function getImageAttachmentView() {
+        return $this->img_att_view;
+    }
+
     function forcePasswdChange() {
         return $this->change_passwd;
     }
@@ -585,43 +590,43 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
     }
 
     function getTicketsVisibility($exclude_archived=false) {
-
         // -- Open and assigned to me
         $assigned = Q::any(array(
             'staff_id' => $this->getId(),
         ));
-
         $assigned->add(array('thread__referrals__agent__staff_id' => $this->getId()));
-
+        $childRefAgent = Q::all(new Q(array('child_thread__object_type' => 'C',
+            'child_thread__referrals__agent__staff_id' => $this->getId())));
+        $assigned->add($childRefAgent);
         // -- Open and assigned to a team of mine
         if (($teams = array_filter($this->getTeams()))) {
             $assigned->add(array('team_id__in' => $teams));
             $assigned->add(array('thread__referrals__team__team_id__in' => $teams));
+            $childRefTeam = Q::all(new Q(array('child_thread__object_type' => 'C',
+                'child_thread__referrals__team__team_id__in' => $teams)));
+            $assigned->add($childRefTeam);
         }
-
         $visibility = Q::any(new Q(array('status__state'=>'open', $assigned)));
-
         // -- If access is limited to assigned only, return assigned
         if ($this->isAccessLimited())
             return $visibility;
-
         // -- Routed to a department of mine
         if (($depts=$this->getDepts()) && count($depts)) {
             $in_dept = Q::any(array(
                 'dept_id__in' => $depts,
                 'thread__referrals__dept__id__in' => $depts,
             ));
-
             if ($exclude_archived) {
                 $in_dept = Q::all(array(
                     'status__state__in' => ['open', 'closed'],
                     $in_dept,
                 ));
             }
-
             $visibility->add($in_dept);
+            $childRefDept = Q::all(new Q(array('child_thread__object_type' => 'C',
+                'child_thread__referrals__dept__id__in' => $depts)));
+            $visibility->add($childRefDept);
         }
-
         return $visibility;
     }
 
@@ -769,6 +774,7 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
                     'thread_view_order' => $vars['thread_view_order'],
                     'default_ticket_queue_id' => $vars['default_ticket_queue_id'],
                     'reply_redirect' => ($vars['reply_redirect'] == 'Queue') ? 'Queue' : 'Ticket',
+                    'img_att_view' => ($vars['img_att_view'] == 'inline') ? 'inline' : 'download',
                     )
                 );
         $this->_config = $_config->getInfo();
@@ -1151,6 +1157,12 @@ implements AuthenticatedUser, EmailContact, TemplateVariable, Searchable {
         $this->phone_ext = $vars['phone_ext'];
         $this->mobile = Format::phone($vars['mobile']);
         $this->notes = Format::sanitize($vars['notes']);
+
+        // Set staff password if exists
+        if (!$vars['welcome_email'] && $vars['passwd1']) {
+            $this->setPassword($vars['passwd1'], null);
+            $this->change_passwd = $vars['change_passwd'] ? 1 : 0;
+        }
 
         if ($errors)
             return false;

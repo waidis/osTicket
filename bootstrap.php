@@ -142,6 +142,9 @@ class Bootstrap {
         define('QUEUE_EXPORT_TABLE', $prefix.'queue_export');
         define('QUEUE_CONFIG_TABLE', $prefix.'queue_config');
 
+        define('SCHEDULE_TABLE', $prefix.'schedule');
+        define('SCHEDULE_ENTRY_TABLE', $prefix.'schedule_entry');
+
         define('API_KEY_TABLE',$prefix.'api_key');
         define('TIMEZONE_TABLE',$prefix.'timezone');
     }
@@ -335,9 +338,9 @@ define('CLI_DIR', INCLUDE_DIR.'cli/');
 /*############## Do NOT monkey with anything else beyond this point UNLESS you really know what you are doing ##############*/
 
 #Current version && schema signature (Changes from version to version)
-define('THIS_VERSION','1.8-git'); //Shown on admin panel
 define('GIT_VERSION','$git');
-define('MAJOR_VERSION', '1.12');
+define('MAJOR_VERSION', '1.14');
+define('THIS_VERSION', MAJOR_VERSION.'-git'); //Shown on admin panel
 //Path separator
 if(!defined('PATH_SEPARATOR')){
     if(strpos($_ENV['OS'],'Win')!==false || !strcasecmp(substr(PHP_OS, 0, 3),'WIN'))
