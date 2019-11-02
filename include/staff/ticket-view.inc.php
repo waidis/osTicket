@@ -8,6 +8,9 @@ if(!@$thisstaff->isStaff() || !$ticket->checkStaffPerm($thisstaff)) die('Access 
 //Re-use the post info on error...savekeyboards.org (Why keyboard? -> some people care about objects than users!!)
 $info=($_POST && $errors)?Format::input($_POST):array();
 
+$type = array('type' => 'viewed');
+Signal::send('object.view', $ticket, $type);
+
 //Get the goodies.
 $dept     = $ticket->getDept();  //Dept
 $role     = $ticket->getRole($thisstaff);
@@ -153,7 +156,7 @@ if($ticket->isOverdue())
                     <li><a class="change-user" href="#tickets/<?php
                     echo $ticket->getId(); ?>/change-user"
                     onclick="javascript:
-                        $('#response').redactor('draft.saveDraft');"
+                        saveDraft();"
                     ><i class="icon-user"></i> <?php
                     echo __('Change Owner'); ?></a></li>
                 <?php
@@ -260,6 +263,7 @@ if($ticket->isOverdue())
                     <?php
                      }
                   }
+                  Signal::send('ticket.view.more', $ticket, $extras);
                   if ($role->hasPerm(Ticket::PERM_DELETE)) {
                      ?>
                     <li class="danger"><a class="ticket-action" href="#tickets/<?php
@@ -318,7 +322,7 @@ if($ticket->isOverdue())
                               data-redirect="tickets.php?id=<?php echo $ticket->getId(); ?>"
                               href="#statuses"
                               onclick="javascript:
-                                  $('#response').redactor('draft.saveDraft');"
+                                  saveDraft();"
                               >
                               <?php echo $ticket->getStatus(); ?>
                           </a>
@@ -351,7 +355,7 @@ if($ticket->isOverdue())
                             data-redirect="tickets.php?id=<?php echo $ticket->getId(); ?>"
                             href="#tickets/<?php echo $ticket->getId(); ?>/transfer"
                             onclick="javascript:
-                                $('#response').redactor('draft.saveDraft');"
+                                saveDraft();"
                             ><?php echo Format::htmlchars($ticket->getDeptName()); ?>
                         </a>
                       </td>
@@ -372,7 +376,7 @@ if($ticket->isOverdue())
                     <th width="100"><?php echo __('User'); ?>:</th>
                     <td><a href="#tickets/<?php echo $ticket->getId(); ?>/user"
                         onclick="javascript:
-                            $('#response').redactor('draft.saveDraft');
+                            saveDraft();
                             $.userLookup('ajax.php/tickets/<?php echo $ticket->getId(); ?>/user',
                                     function (user) {
                                         $('#user-'+user.id+'-name').text(user.name);
@@ -1408,4 +1412,9 @@ $(function() {
     $(this).parent().find('.select2-search__field').prop('disabled', true);
    });
 });
+function saveDraft() {
+    redactor = $('#response').redactor('plugin.draft');
+    if (redactor.opts.draftId)
+        $('#response').redactor('plugin.draft.saveDraft');
+}
 </script>

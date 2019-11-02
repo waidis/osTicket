@@ -2703,17 +2703,15 @@ class TopicField extends ChoiceField {
 
     function getTopics() {
         if (!isset($this->topics))
-            $this->topics = Topic::objects();
+            $this->topics = Topic::getHelpTopics(false, false, true);
 
         return $this->topics;
     }
 
     function getTopic($id) {
         if ($this->getTopics() &&
-                ($s=$this->topics->findFirst(array('id' => $id))))
-            return $s;
-
-        return Topic::lookup($id);
+                isset($this->topics[$id]))
+            return Topic::lookup($id);
     }
 
     function getWidget($widgetClass=false) {
@@ -2732,10 +2730,7 @@ class TopicField extends ChoiceField {
 
     function getChoices($verbose=false) {
         if (!isset($this->_choices)) {
-            $choices = array('' => '— '.__('Default').' —');
-            foreach ($this->getTopics() as $t)
-                $choices[$t->getId()] = $t->getName();
-            $this->_choices = $choices;
+            $this->_choices = $this->getTopics();
         }
 
         return $this->_choices;
@@ -2775,7 +2770,8 @@ class TopicField extends ChoiceField {
 
     function toString($value) {
         if (!($value instanceof Topic) && is_numeric($value))
-            $value = $this->getSLA($value);
+            $value = $this->getTopic($value);
+
         return ($value instanceof Topic) ? $value->getName() : $value;
     }
 
@@ -2840,7 +2836,7 @@ class SLAField extends ChoiceField {
 
     function getChoices($verbose=false) {
         if (!isset($this->_choices)) {
-            $choices = array('' => '— '.__('Default').' —');
+            $choices = array();
             foreach ($this->getSLAs() as $s)
                 $choices[$s->getId()] = $s->getName();
             $this->_choices = $choices;
@@ -2947,9 +2943,8 @@ class PriorityField extends ChoiceField {
     }
 
     function getChoices($verbose=false) {
-
         if (!isset($this->_choices)) {
-            $choices = array('' => '— '.__('Default').' —');
+            $choices = array();
             foreach ($this->getPriorities() as $p)
                 $choices[$p->getId()] = $p->getDesc();
             $this->_choices = $choices;
@@ -3020,7 +3015,6 @@ class PriorityField extends ChoiceField {
 
     function getConfigurationOptions() {
         $choices = $this->getChoices();
-        $choices[''] = __('System Default');
         return array(
             'prompt' => new TextboxField(array(
                 'id'=>2, 'label'=>__('Prompt'), 'required'=>false, 'default'=>'',
@@ -4085,6 +4079,24 @@ class Widget {
     function getJsValueGetter($id='%s') {
         return sprintf('%s.val()', $id);
     }
+
+    /**
+     * getJsComparator
+     *
+     * Used with the dependent fields to get comparison expression
+     *
+     */
+    function getJsComparator($value, $id) {
+
+        if (strpos($value, '|') !== false)
+            return sprintf('$.inArray(%s, %s) !== -1',
+                   $this->getJsValueGetter($id),
+                   JsonDataEncoder::encode(explode('|', $value)));
+
+        return sprintf('%s == %s',
+                $this->getJsValueGetter($id),
+                JsonDataEncoder::encode($value));
+    }
 }
 
 class TextboxWidget extends Widget {
@@ -4283,13 +4295,16 @@ class ChoicesWidget extends Widget {
         if (!strcasecmp($mode, 'search')) {
             $def_val = $prompt;
         } else {
+            $showdefault = true;
+            if ($mode != 'create')
+                 $showdefault = false;
             $def_key = $this->field->get('default');
-            if (!$def_key && $config['default'])
+            if (!$def_key && isset($config['default']))
                 $def_key = $config['default'];
             if (is_array($def_key))
                 $def_key = key($def_key);
             $have_def = isset($choices[$def_key]);
-            $def_val = $have_def ? $choices[$def_key] : $prompt;
+            $def_val = ($have_def && !$showdefault) ? $choices[$def_key] : $prompt;
         }
 
         $values = $this->value;
@@ -4313,8 +4328,8 @@ class ChoicesWidget extends Widget {
             data-placeholder="<?php echo $prompt; ?>"
             <?php if ($config['multiselect'])
                 echo ' multiple="multiple"'; ?>>
-            <?php if (!$have_def && !$config['multiselect']) { ?>
-            <option value="<?php echo $def_key; ?>">&mdash; <?php
+            <?php if ($showdefault || (!$have_def && !$config['multiselect'])) { ?>
+            <option value="<?php echo $showdefault ? '' : $def_key; ?>">&mdash; <?php
                 echo $def_val; ?> &mdash;</option>
 <?php
         }
@@ -4404,17 +4419,6 @@ class ChoicesWidget extends Widget {
         return sprintf('%s.find(":selected").val()', $id);
     }
 
-    function getJsComparator($value, $id) {
-
-        if (strpos($value, '|') !== false)
-           return sprintf('$.inArray(%s, %s) !== -1',
-                   $this->getJsValueGetter($id),
-                   JsonDataEncoder::encode(explode('|', $value)));
-
-        return sprintf('%s == %s',
-                $this->getJsValueGetter($id),
-                JsonDataEncoder::encode($value));
-    }
 }
 
 /**
@@ -4618,11 +4622,6 @@ class CheckboxWidget extends Widget {
         return sprintf('%s.is(":checked")', $id);
     }
 
-    function getJsComparator($value, $id) {
-        return sprintf('%s == %s',
-                $this->getJsValueGetter($id),
-                JsonDataEncoder::encode($value));
-    }
 }
 
 class DatetimePickerWidget extends Widget {
@@ -4632,7 +4631,8 @@ class DatetimePickerWidget extends Widget {
 
         $config = $this->field->getConfiguration();
         $timezone = $this->field->getTimezone();
-
+        $dateFormat = $cfg->getDateFormat(true);
+        $timeFormat = $cfg->getTimeFormat(true);
         if (!isset($this->value) && ($default=$this->field->get('default')))
             $this->value = $default;
 
@@ -4642,14 +4642,14 @@ class DatetimePickerWidget extends Widget {
                 // Convert to user's timezone for update.
                 $datetime->setTimezone($timezone);
 
-            // Get the date
+            // Get formatted date
             $this->value = Format::date($datetime->getTimestamp(), false,
                         false, $timezone ? $timezone->getName() : 'UTC');
-
-            // TODO: Fix timeformat based on config. For now we're forcing
-            // hh:mm tt
+            // Get formatted time
             if ($config['time']) {
-                 $this->value .=$datetime->format(' h:i a');
+                 $this->value .=' '.Format::time($datetime->getTimestamp(),
+                         false, $timeFormat, $timezone ?
+                         $timezone->getName() : 'UTC');
             }
 
         } else {
@@ -4699,14 +4699,15 @@ class DatetimePickerWidget extends Widget {
                                 controlType: 'select',\n
                                 timeInput: true,\n
                                 timeFormat: \"%s\",\n",
-                                "hh:mm tt");
+                                Format::dtfmt_php2js($timeFormat));
                     }
                     ?>
                     numberOfMonths: 2,
                     showButtonPanel: true,
                     buttonImage: './images/cal.png',
                     showOn:'both',
-                    dateFormat: $.translate_format('<?php echo $cfg->getDateFormat(true); ?>')
+                    dateFormat: '<?php echo
+                        Format::dtfmt_php2js($dateFormat); ?>'
                 });
             });
         </script>
@@ -4722,7 +4723,7 @@ class DatetimePickerWidget extends Widget {
         global $cfg;
 
         if ($value = parent::getValue()) {
-            if (($dt = Format::parseDatetime($value))) {
+            if (($dt = Format::parseDateTime($value))) {
                 // Effective timezone for the selection
                 if (($timezone = $this->field->getTimezone()))
                     $dt->setTimezone($timezone);

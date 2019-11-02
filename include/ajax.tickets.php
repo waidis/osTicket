@@ -379,7 +379,13 @@ class TicketsAjaxAPI extends AjaxController {
         $info = array();
         $errors = array();
 
-        if ($_POST['tids']) {
+        if ($_POST['dtids']) {
+            foreach($_POST['dtids'] as $key => $value) {
+                if (is_numeric($key) && $ticket = Ticket::lookup($value))
+                    $ticket->unlink();
+            }
+            return true;
+        } elseif ($_POST['tids']) {
             if ($parent = Ticket::merge($_POST))
                 Http::response(201, 'Successfully managed');
             else
@@ -1831,7 +1837,7 @@ class TicketsAjaxAPI extends AjaxController {
                     // Clear attachment list
                     $reply_attachments_form->setSource(array());
                     $reply_attachments_form->getField('attachments')->reset();
-                    Draft::deleteForNamespace('task.reply.'.$task->getId(),
+                    Draft::deleteForNamespace('task.response.'.$task->getId(),
                             $thisstaff->getId());
                 } else {
                     if (!$errors['err'])

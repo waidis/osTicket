@@ -618,6 +618,7 @@ class CustomQueue extends VerySimpleModel {
                 'thread_count' =>   __('Thread Count'),
                 'reopen_count' =>   __('Reopen Count'),
                 'attachment_count' => __('Attachment Count'),
+                'task_count' => __('Task Count'),
                 ) + $cdata;
 
         return $fields;
@@ -861,6 +862,8 @@ class CustomQueue extends VerySimpleModel {
         elseif ($sort && $sort['col'] &&
                 ($C=$this->getColumn($sort['col'])))
             $query = $C->applySort($query, $sort['dir']);
+        else
+            $query->order_by('-created');
 
         // Render Util
         $render = function ($row) use($columns) {
@@ -986,9 +989,6 @@ class CustomQueue extends VerySimpleModel {
                 if (list(,$field) = $searchable[$name])
                     if ($q = $field->getSearchQ($method, $value, $name))
                         $qs = $qs->filter($q);
-
-                // Add default sorting to non-keyword searches
-                $qs->order_by(array('-created'));
             }
         }
 
@@ -1329,6 +1329,8 @@ class CustomQueue extends VerySimpleModel {
             if ($vars['sort_id'] === '::') {
                 if (!$this->parent)
                     $errors['sort_id'] = __('No parent selected');
+                else
+                     $this->sort_id = 0;
             }
             elseif ($qs = QueueSort::lookup($vars['sort_id'])) {
                 $this->sort_id = $vars['sort_id'];
@@ -1336,7 +1338,8 @@ class CustomQueue extends VerySimpleModel {
             else {
                 $errors['sort_id'] = __('Select an item from the list');
             }
-        }
+        } else
+             $this->sort_id = 0;
 
         list($this->_conditions, $conditions)
             = QueueColumn::getConditionsFromPost($vars, $this->id, $this->getRoot());
@@ -1710,6 +1713,35 @@ extends QueueColumnAnnotation {
 
     function isVisible($row) {
         return $row[static::$qname] > 0;
+    }
+}
+
+class TicketTasksCount
+extends QueueColumnAnnotation {
+    static $icon = 'list-ol';
+    static $qname = '_task_count';
+    static $desc = /* @trans */ 'Tasks Count';
+
+    function annotate($query, $name=false) {
+        $name = $name ?: static::$qname;
+        return $query->annotate(array(
+            $name => Task::objects()
+            ->filter(array('ticket__ticket_id' => new SqlField('ticket_id', 1)))
+            ->aggregate(array('count' => SqlAggregate::COUNT('id')))
+        ));
+    }
+
+    function getDecoration($row, $text) {
+        $count = $row[static::$qname];
+        if ($count) {
+            return sprintf(
+                '<small class="faded-more"><i class="icon-%s"></i> %s</small>',
+                static::$icon, $count);
+        }
+    }
+
+    function isVisible($row) {
+        return $row[static::$qname];
     }
 }
 
@@ -2622,6 +2654,7 @@ extends VerySimpleModel {
         $setting = array(
                 'sort_id' => (int) $vars['sort_id'],
                 'filter' => $vars['filter'],
+                'inherit-sort' => ($vars['sort_id'] == '::'),
                 'inherit-columns' => isset($vars['inherit-columns']),
                 'criteria' => $vars['criteria'] ?: array(),
                 );
@@ -2635,8 +2668,7 @@ extends VerySimpleModel {
         }
 
         $this->setting =  JsonDataEncoder::encode($setting);
-
-        return $this->save();
+        return $this->save(true);
     }
 
     function save($refetch=false) {

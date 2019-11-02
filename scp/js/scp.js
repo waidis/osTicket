@@ -262,7 +262,7 @@ var scp_prep = function() {
             showButtonPanel: true,
             buttonImage: './images/cal.png',
             showOn:'both',
-            dateFormat: $.translate_format(c.date_format||'m/d/Y')
+            dateFormat: c.date_format || 'm/d/Y'
         });
 
     });
@@ -590,29 +590,6 @@ $(document).ajaxSend(function(event, xhr, settings) {
 jQuery.fn.exists = function() { return this.length>0; };
 
 $.pjax.defaults.timeout = 30000;
-$.translate_format = function(str) {
-    var translation = {
-        'DD':   'oo',
-        'D':    'o',
-        'EEEE': 'DD',
-        'EEE':  'D',
-        'MMMM': '||',   // Double replace necessary
-        'MMM':  '|',
-        'MM':   'mm',
-        'M':    'm',
-        '||':   'MM',
-        '|':    'M',
-        'yyyy': '`',
-        'yyy':  '`',
-        'yy':   'y',
-        '`':    'yy'
-    };
-    // Change PHP formats to datepicker ones
-    $.each(translation, function(php, jqdp) {
-        str = str.replace(php, jqdp);
-    });
-    return str;
-};
 $(document).keydown(function(e) {
 
     if (e.keyCode == 27 && !$('#overlay').is(':hidden')) {
@@ -1055,6 +1032,25 @@ $(document).on('click', 'a.export', function(e) {
     return false;
 });
 
+$(document).on('click', 'a.nomodalexport', function(e) {
+    e.preventDefault();
+    var url = 'ajax.php/'+$(this).attr('href').substr(1);
+
+     $.ajax({
+          type: "GET",
+          url: url,
+          dataType: 'json',
+          error:function(XMLHttpRequest, textStatus, errorThrown) {
+          },
+          success: function(resp) {
+              var checker = 'ajax.php/export/'+resp.eid+'/check';
+              $.dialog(checker, 201, function (xhr) { });
+              return false;
+          }
+    });
+    return false;
+});
+
 // Forms — submit, stay on same tab
 $(document).on('submit', 'form', function() {
     if (!!$(this).attr('action') && $(this).attr('action').indexOf('#') == -1)
@@ -1198,7 +1194,7 @@ $(document).on('click.note', '.quicknote .action.edit-note', function(e) {
     if (note.closest('.dialog, .tip_box').length)
         T.addClass('no-bar small');
     body.replaceWith(T);
-    $.redact(T, { focusEnd: true });
+    T.redactor({ focusEnd: true });
     note.find('.action.edit-note').hide();
     note.find('.action.save-note').show();
     note.find('.action.cancel-edit').show();
@@ -1210,7 +1206,7 @@ $(document).on('click.note', '.quicknote .action.cancel-edit', function() {
         T = note.find('textarea'),
         body = $('<div class="body">');
     body.load('ajax.php/note/' + note.data('id'), function() {
-      try { T.redactor('core.destroy'); } catch (e) {}
+      try { T.redactor('stop'); } catch (e) {}
       T.replaceWith(body);
       note.find('.action.save-note').hide();
       note.find('.action.cancel-edit').hide();
@@ -1223,10 +1219,10 @@ $(document).on('click.note', '.quicknote .action.save-note', function() {
     var note = $(this).closest('.quicknote'),
         T = note.find('textarea');
     $.post('ajax.php/note/' + note.data('id'),
-      { note: T.redactor('code.get') },
+      { note: T.redactor('source.getCode') },
       function(html) {
         var body = $('<div class="body">').html(html);
-        try { T.redactor('core.destroy'); } catch (e) {}
+        try { T.redactor('stop'); } catch (e) {}
         T.replaceWith(body);
         note.find('.action.save-note').hide();
         note.find('.action.cancel-edit').hide();
@@ -1257,9 +1253,10 @@ $(document).on('click', '#new-note', function() {
     button = $('<input type="button">').val(__('Create'));
     button.click(function() {
       $.post('ajax.php/' + note.data('url'),
-        { note: T.redactor('code.get'), no_options: note.hasClass('no-options') },
+        { note: T.redactor('source.getCode'), no_options: note.hasClass('no-options') },
         function(response) {
-          $(T).redactor('core.destroy').replaceWith(note);
+          T.redactor('stop');
+          T.replaceWith(note);
           $(response).show('highlight').insertBefore(note.parent());
           $('.submit', note.parent()).remove();
         },
@@ -1271,7 +1268,7 @@ $(document).on('click', '#new-note', function() {
     note.replaceWith(T);
     $('<p>').addClass('submit').css('text-align', 'center')
         .append(button).appendTo(T.parent());
-    $.redact(T, { focusEnd: true });
+    T.redactor({ focusEnd: true });
     return false;
 });
 
