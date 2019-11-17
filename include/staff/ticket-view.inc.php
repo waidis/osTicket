@@ -27,8 +27,9 @@ $mylock = ($lock && $lock->getStaffId() == $thisstaff->getId()) ? $lock : null;
 $id    = $ticket->getId();    //Ticket ID.
 $isManager = $dept->isManager($thisstaff); //Check if Agent is Manager
 $canRelease = ($isManager || $role->hasPerm(Ticket::PERM_RELEASE)); //Check if Agent can release tickets
-$canAnswer = ($isManager || $role->hasPerm(Ticket::PERM_REPLY)); //Check if Agent can mark as answered/unanswered
 $blockReply = $ticket->isChild() && $ticket->getMergeType() != 'visual';
+$canMarkAnswered = ($isManager || $role->hasPerm(Ticket::PERM_MARKANSWERED)); //Check if Agent can mark as answered/unanswered
+
 //Useful warnings and errors the user might want to know!
 if ($ticket->isClosed() && !$ticket->isReopenable())
     $warn = sprintf(
@@ -95,6 +96,12 @@ if($ticket->isOverdue())
                  class="icon-file-text-alt"></i> <?php echo __('Thread + Internal Notes'); ?></a>
                  <li><a class="no-pjax" target="_blank" href="tickets.php?id=<?php echo $ticket->getId(); ?>&a=print&notes=1&events=1"><i
                  class="icon-list-alt"></i> <?php echo __('Thread + Internal Notes + Events'); ?></a>
+                 <?php if (extension_loaded('zip')) { ?>
+                 <li><a class="no-pjax" target="_blank" href="tickets.php?id=<?php echo $ticket->getId(); ?>&a=zip&notes=1"><i
+                 class="icon-download-alt"></i> <?php echo __('Export with Notes + Attachments'); ?></a>
+                 <li><a class="no-pjax" target="_blank" href="tickets.php?id=<?php echo $ticket->getId(); ?>&a=zip&notes=1&tasks=1"><i
+                 class="icon-download"></i> <?php echo __('Export with Notes + Attachments + Tasks'); ?></a>
+                 <?php } ?>
               </ul>
             </div>
             <?php
@@ -194,7 +201,7 @@ if($ticket->isOverdue())
                     <?php
                     }
                  }
-                 if($ticket->isOpen() && $canAnswer) {
+                 if($ticket->isOpen() && $canMarkAnswered) {
                     if($ticket->isAnswered()) { ?>
                     <li><a href="#tickets/<?php echo $ticket->getId();
                         ?>/mark/unanswered" class="ticket-action"

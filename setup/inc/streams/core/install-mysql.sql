@@ -252,6 +252,7 @@ CREATE TABLE `%TABLE_PREFIX%email` (
   `mail_host` varchar(255) NOT NULL,
   `mail_protocol` enum('POP','IMAP') NOT NULL default 'POP',
   `mail_encryption` enum('NONE','SSL') NOT NULL,
+  `mail_folder` varchar(255) default NULL,
   `mail_port` int(6) default NULL,
   `mail_fetchfreq` tinyint(3) NOT NULL default '5',
   `mail_fetchmax` tinyint(4) NOT NULL default '30',
@@ -265,6 +266,9 @@ CREATE TABLE `%TABLE_PREFIX%email` (
   `smtp_port` int(6) default NULL,
   `smtp_secure` tinyint(1) NOT NULL default '1',
   `smtp_auth` tinyint(1) NOT NULL default '1',
+  `smtp_auth_creds` int(11) DEFAULT '0',
+  `smtp_userid` varchar(255) NOT NULL,
+  `smtp_userpass` varchar(255) CHARACTER SET ascii NOT NULL,
   `smtp_spoofing` tinyint(1) unsigned NOT NULL default '0',
   `notes` text,
   `created` datetime NOT NULL,
@@ -696,6 +700,15 @@ CREATE TABLE `%TABLE_PREFIX%thread_entry_email` (
   PRIMARY KEY (`id`),
   KEY `thread_entry_id` (`thread_entry_id`),
   KEY `mid` (`mid`)
+) DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `%TABLE_PREFIX%thread_entry_merge`;
+CREATE TABLE `%TABLE_PREFIX%thread_entry_merge` (
+  `id` int(11) unsigned NOT NULL auto_increment,
+  `thread_entry_id` int(11) unsigned NOT NULL,
+  `data` text,
+  PRIMARY KEY (`id`),
+  KEY `thread_entry_id` (`thread_entry_id`)
 ) DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `%TABLE_PREFIX%ticket`;

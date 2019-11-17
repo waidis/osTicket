@@ -111,6 +111,7 @@ implements RestrictedAccess, Threadable, Searchable {
     const PERM_MERGE    = 'ticket.merge';
     const PERM_LINK     = 'ticket.link';
     const PERM_REPLY    = 'ticket.reply';
+    const PERM_MARKANSWERED = 'ticket.markanswered';
     const PERM_CLOSE    = 'ticket.close';
     const PERM_DELETE   = 'ticket.delete';
 
@@ -165,6 +166,11 @@ implements RestrictedAccess, Threadable, Searchable {
                 /* @trans */ 'Post Reply',
                 'desc'  =>
                 /* @trans */ 'Ability to post a ticket reply'),
+            self::PERM_MARKANSWERED => array(
+                'title' =>
+                /* @trans */ 'Mark as Answered',
+                'desc'  =>
+                /* @trans */ 'Ability to mark a ticket as Answered/Unanswered'),
             self::PERM_CLOSE => array(
                 'title' =>
                 /* @trans */ 'Close',
@@ -541,9 +547,9 @@ implements RestrictedAccess, Threadable, Searchable {
     }
 
     function updateEstDueDate($clearOverdue=true) {
-        $DueDate = $this->getEstDueDate();
         $this->est_duedate = $this->getSLADueDate(true) ?: null;
         // Clear overdue flag if duedate or SLA changes and the ticket is no longer overdue.
+        $DueDate = $this->getEstDueDate();
         if ($this->isOverdue()
             && $clearOverdue
             && (!$DueDate // Duedate + SLA cleared
@@ -1499,7 +1505,24 @@ implements RestrictedAccess, Threadable, Searchable {
                 };
                 break;
             case 'open':
-                // TODO: check current status if it allows for reopening
+                if ($this->isClosed() && $this->isReopenable()) {
+                    // Auto-assign to closing staff or the last respondent if the
+                    // agent is available and has access. Otherwise, put the ticket back
+                    // to unassigned pool.
+                    $dept = $this->getDept();
+                    $staff = $this->getStaff() ?: $this->getLastRespondent();
+                    $autoassign = (!$dept->disableReopenAutoAssign());
+                    if ($autoassign
+                            && $staff
+                            // Is agent on vacation ?
+                            && $staff->isAvailable()
+                            // Does the agent have access to dept?
+                            && $staff->canAccessDept($dept))
+                        $this->setStaffId($staff->getId());
+                    else
+                        $this->setStaffId(0); // Clear assignment
+                }
+
                 if ($this->isClosed()) {
                     $this->closed = $this->lastupdate = $this->reopened = SqlFunction::NOW();
                     $ecb = function ($t) {
@@ -1837,24 +1860,8 @@ implements RestrictedAccess, Threadable, Searchable {
         // We're also checking autorespond flag because we don't want to
         // reopen closed tickets on auto-reply from end user. This is not to
         // confused with autorespond on new message setting
-        if ($reopen && $this->isClosed() && $this->isReopenable()) {
+        if ($reopen && $this->isClosed() && $this->isReopenable())
             $this->reopen();
-            // Auto-assign to closing staff or the last respondent if the
-            // agent is available and has access. Otherwise, put the ticket back
-            // to unassigned pool.
-            $dept = $this->getDept();
-            $staff = $this->getStaff() ?: $this->getLastRespondent();
-            $autoassign = (!$dept->disableReopenAutoAssign());
-            if ($autoassign
-                    && $staff
-                    // Is agent on vacation ?
-                    && $staff->isAvailable()
-                    // Does the agent have access to dept?
-                    && $staff->canAccessDept($dept))
-                $this->setStaffId($staff->getId());
-            else
-                $this->setStaffId(0); // Clear assignment
-        }
 
         if (!$autorespond)
             return;
@@ -3503,6 +3510,12 @@ implements RestrictedAccess, Threadable, Searchable {
         exit;
     }
 
+    function zipExport($notes=true, $tasks=false) {
+        $exporter = new TicketZipExporter($this);
+        $exporter->download(['notes'=>$notes, 'tasks'=>$tasks]);
+        exit;
+    }
+
     function delete($comments='') {
         global $ost, $thisstaff;
 
@@ -3700,22 +3713,14 @@ implements RestrictedAccess, Threadable, Searchable {
             $this->selectSLAId();
         }
 
-        // Update estimated due date in database
-        $estimatedDueDate = $this->getEstDueDate();
+        if (!$this->save())
+            return false;
+
         $this->updateEstDueDate();
-
-        // Clear overdue flag if duedate or SLA changes and the ticket is no longer overdue.
-        if($this->isOverdue()
-            && (!$estimatedDueDate //Duedate + SLA cleared
-                || Misc::db2gmtime($estimatedDueDate) > Misc::gmtime() //New due date in the future.
-        )) {
-            $this->clearOverdue();
-        }
-
         Signal::send('model.updated', $this);
-        return $this->save();
-    }
 
+        return true;
+    }
 
     function updateField($form, &$errors) {
         global $thisstaff, $cfg;
@@ -3791,10 +3796,9 @@ implements RestrictedAccess, Threadable, Searchable {
 
         $this->lastupdate = SqlFunction::NOW();
 
+        $this->save();
         if ($updateDuedate)
             $this->updateEstDueDate();
-
-        $this->save();
 
         Signal::send('model.updated', $this);
 
