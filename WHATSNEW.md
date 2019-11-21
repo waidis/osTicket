@@ -1,3 +1,71 @@
+osTicket v1.14
+==============
+### Enhancements
+* php: 5.6 Support (5e7497d, 5f3a8f4)
+* Oops: Lint Fixes (c5b15d6)
+* Update index.php (e7779e2)
+* Overdue oopsie (de7271d)
+* Ticket Task count (b4fca25)
+* Visibility: Move getJsComparator to Widget class (d3f46bf)
+* i18n spelling  oopsies (36b44f7)
+
+### Improvements
+* Require Between Date Entries (1aaee58)
+* Add Ticket Reference to Tasks (af97900)
+* Disabled SLA (2fe5370)
+* Queues:  Agents with no team assignment (a00cee9)
+* Ticket Merge Upgrade Patch (38fada0)
+* ticket-view: Add ZIP export option (5e5b6b8)
+* issue: Check $cfg iFrame (a6b8200)
+* feature: Separate SMTP Credentials (edb8ac6, d2cb614, 9d4bcb5, 093984b,
+* b6d13a2)
+* feature: Fetch From Mail Folder (d70dfc1, 901d30a)
+* feature: Configurable iFrame Whitelist (44200e5, 2330f47)
+* Ticket Merge: Close Children (6fef208)
+* Audit Log Plugin (9b80889, 8e3fd4d, bb3d092, 46a764f, 72974c8, 27cfd65,
+* 69da645, 349c982, 7cfc062, a4bd53b, e0ca7e2, d942b16, 2aacbd1, ff90638,
+* 40771ea, 30eeaf9, 2c350f3, f261283, 205b3ae, 5c91dc1, ac1e99c, 59e5d71,
+* 203c716, 54a175a, 5ba9e89, 419a478)
+* Issue: Organization Update (7b6bd90)
+* issue: Redactor Reset Buttons (8078d4d)
+
+osTicket v1.12.4
+================
+### Enhancements
+* issue: Spaces In Username (7c8f557)
+* i18n: KnowledgeBase JS (bce8296)
+* i18n: KnowledgeBase Category (5646e7c)
+* i18n: OpenSSL Error (af6f0e9)
+* Message Variable - %{message} (315c4e7)
+* Datatimepicker: Time format (f0fccbc)
+
+### Improvements
+* Highlight tab with error(s) (b81b703)
+* format: Clickable URLs (4f7569d)
+* Queue Pages Default (dff8bc1, 5105250)
+* Add Time boundaries to Between date range (cbc89b3, 31c97cf)
+* Clear Overdue Flag on Due Date Change (8c76d70)
+* db: System Time Zone (76087fc, d8adf85)
+* Modify Reopen Assignment (d50ebbb)
+* issue: Format File Name (bd427cd)
+* issue: DB Error #1062 (27c925c)
+* Issue: Edit Task Fields (05cbb75)
+* issue: In-Reply-To Header (8849c19)
+* orm: Refetch Failure (eb4bda8)
+* issue: Delete Org Session Failure (bbd0c25)
+* Feature: Mark as Answered permission option (2fcc664, 52aaa0b)
+* issue: Umlauts In Subject (cccdb15)
+* issue: Umlauts In Sender's Name (e3f42c3)
+* Fix use of possibly uninitialised $_SERVER['HTTPS'] (8e9b150)
+* issue: ACL Oopsie (4d774bc)
+* issue: Revert  fefed14 (c9be2e0)
+
+### Performance and Security
+* Arbitrary Method Invocation (4dfb77c)
+* Auth: Authentication Token Bypass (a9834d8)
+* mPDF: Remote Code Execution Vulnerability (6e039ab)
+* issue: Attachment Filter (9f4fbc2)
+
 osTicket v1.14-rc2
 ==================
 ### Enhancements
