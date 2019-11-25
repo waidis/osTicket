@@ -1,3 +1,15 @@
+osTicket v1.14.1
+================
+### Improvements
+* Revert commit cedd6121 (7dd7bfa)
+* Clear Overdue On Reopen (6dc0b74)
+* Allow Repeatable Once Entries (cb9bb2f)
+
+osTicket v1.12.5
+================
+### Performance and Security
+* Hotfix: File data callback (d3e643d)
+
 osTicket v1.14
 ==============
 ### Enhancements
