@@ -384,12 +384,12 @@ class TicketsAjaxAPI extends AjaxController {
                 if (is_numeric($key) && $ticket = Ticket::lookup($value))
                     $ticket->unlink();
             }
-            return true;
+            Http::response(201, 'Successfully managed');
         } elseif ($_POST['tids']) {
             if ($parent = Ticket::merge($_POST))
                 Http::response(201, 'Successfully managed');
             else
-                $info['error'] = $errors['err'] ?: __('Unable to merge ticket');
+                Http::response(404, 'Unable to manage ticket');
         }
 
         $parentModel = Ticket::objects()
@@ -590,7 +590,7 @@ class TicketsAjaxAPI extends AjaxController {
     }
 
     function editField($tid, $fid) {
-        global $thisstaff;
+        global $cfg, $thisstaff;
 
         if (!($ticket=Ticket::lookup($tid)))
             Http::response(404, __('No such ticket'));
@@ -635,18 +635,44 @@ class TicketsAjaxAPI extends AjaxController {
                     case $field instanceof DepartmentField:
                         $clean = (string) Dept::lookup($field->getClean());
                         break;
+                    case $field instanceof TextareaField:
+                        $clean =  (string) $field->getClean();
+                        $clean = Format::striptags($clean) ? $clean : '&mdash;' . __('Empty') .  '&mdash;';
+                        if (strlen($clean) > 200)
+                             $clean = Format::truncate($clean, 200);
+                        break;
+                    case $field instanceof BooleanField:
+                        $clean = $field->toString($field->getClean());
+                        break;
                     default:
                         $clean =  $field->getClean();
                         $clean = is_array($clean) ? implode($clean, ',') :
                             (string) $clean;
-                        if (strlen($clean) > 200)
-                             $clean = Format::truncate($clean, 200);
+                }
+
+                // Set basic response data
+                $response = array(
+                    'value' => $clean ?: '&mdash;' . __('Empty') .  '&mdash;',
+                    'id' => $fid, 'msg' => $msg
+                );
+
+                // If we require HT to close, the ticket is open, the staff has permission
+                // to close, and we set a HT - ensure we provide all available statuses
+                if ($cfg->requireTopicToClose() && $ticket->isOpen()
+                        && $ticket->checkStaffPerm($thisstaff, Ticket::PERM_CLOSE)
+                        && ($field instanceof TopicField) && $clean) {
+                    $statuses = array();
+                    foreach (TicketStatusList::getStatuses(
+                            array('states' => array('closed'))) as $s) {
+                        if (!$s->isEnabled()) continue;
+                        $statuses[$s->getId()] = $s->getName();
+                    }
+                    if (!is_null($statuses))
+                        $response['statuses'] = $statuses;
                 }
 
                 $clean = is_array($clean) ? $clean[0] : $clean;
-                Http::response(201, $this->json_encode(['value' =>
-                            $clean ?: '&mdash;' . __('Empty') .  '&mdash;',
-                            'id' => $fid, 'msg' => $msg]));
+                Http::response(201, $this->json_encode($response));
             }
 
             $form->addErrors($errors);

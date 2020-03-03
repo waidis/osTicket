@@ -1443,7 +1443,7 @@ implements RestrictedAccess, Threadable, Searchable {
     }
 
     // Ticket Status helper.
-    function setStatus($status, $comments='', &$errors=array(), $set_closing_agent=true) {
+    function setStatus($status, $comments='', &$errors=array(), $set_closing_agent=true, $force_close=false) {
         global $cfg, $thisstaff;
 
         if ($thisstaff && !($role=$this->getRole($thisstaff)))
@@ -1479,7 +1479,7 @@ implements RestrictedAccess, Threadable, Searchable {
         switch ($status->getState()) {
             case 'closed':
                 // Check if ticket is closeable
-                $closeable = $this->isCloseable();
+                $closeable = $force_close ? true : $this->isCloseable();
                 if ($closeable !== true)
                     $errors['err'] = $closeable ?: sprintf(__('%s cannot be closed'), __('This ticket'));
 
@@ -1525,7 +1525,7 @@ implements RestrictedAccess, Threadable, Searchable {
                     $ecb = function ($t) {
                         $t->logEvent('reopened', false, null, 'closed');
                         // Set new sla duedate if any
-                        $t->updateEstDuedate();
+                        $t->updateEstDueDate();
                     };
                 }
 
@@ -2530,7 +2530,7 @@ implements RestrictedAccess, Threadable, Searchable {
                 $children[] = $ticket;
         }
 
-        if ($parent->getMergeType() != 'visual') {
+        if ($parent && $parent->getMergeType() != 'visual') {
             $errors = array();
             foreach ($children as $child) {
                 if ($options['participants'] == 'all' && $collabs = $child->getCollaborators()) {
@@ -2553,7 +2553,10 @@ implements RestrictedAccess, Threadable, Searchable {
                     $child->getThread()->setExtra($parentThread);
 
                 $child->setMergeType($options['combine']);
-                $child->setStatus(intval($options['statusId']));
+                $child->setStatus(intval($options['childStatusId']), false, $errors, true, true); //force close status for children
+
+                if ($options['parentStatusId'])
+                    $parent->setStatus(intval($options['parentStatusId']));
 
                 if ($options['delete-child'] || $options['move-tasks']) {
                     if ($tasks = Task::objects()
@@ -2570,8 +2573,9 @@ implements RestrictedAccess, Threadable, Searchable {
                 if ($options['delete-child'])
                      $child->delete();
             }
+            return $parent;
         }
-        return $parent;
+        return false;
     }
 
     function getRelatedTickets() {
